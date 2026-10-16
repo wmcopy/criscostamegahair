@@ -262,6 +262,11 @@ html{overflow-anchor:none;scroll-padding-top:0}
 .cc-count{position:absolute;right:1px;top:50%;transform:translateY(-50%);font-variant-numeric:tabular-nums}
 @media(max-width:350px){.cc-nav-group{gap:12px}.cc-nav{width:37px;height:37px}.cc-count{font-size:9px}}
 
+
+/* WMCOPY r13: motion treatment, no layout/position changes. */
+@media (prefers-reduced-motion: reduce){
+  .hero *, .section *, .location *, .footer *{scroll-behavior:auto}
+}
 </style>
 <script>
 /* WMCOPY r11: always open a newly loaded or refreshed page at the hero. */
@@ -523,6 +528,71 @@ html{overflow-anchor:none;scroll-padding-top:0}
   window.addEventListener('load',function(){home();requestAnimationFrame(home);setTimeout(function(){home();initialLoad=false},180)});
   window.addEventListener('pageshow',function(ev){if(ev.persisted){initialLoad=true;home();setTimeout(function(){home();initialLoad=false},150)}});
 })();
+</script>
+<script>
+
+/* WMCOPY r13 - GSAP ScrollTrigger progressive enhancement.
+   All content is visible by default; GSAP is loaded after first paint.
+   Do not animate carousel tracks, slider frames or modal wrappers. */
+(function(){
+  'use strict';
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const GSAP_URL='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.14.2/gsap.min.js';
+  const ST_URL='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.14.2/ScrollTrigger.min.js';
+  function inject(url, ready){
+    const s=document.createElement('script'); s.src=url; s.async=true;
+    s.crossOrigin='anonymous'; s.onload=ready; s.onerror=function(){/* retain visible static fallback */};
+    document.head.appendChild(s);
+  }
+  function run(){
+    if (!window.gsap || !window.ScrollTrigger) return;
+    const gsap=window.gsap, ScrollTrigger=window.ScrollTrigger;
+    gsap.registerPlugin(ScrollTrigger);
+    const ease='power2.out';
+    const animate=function(nodes, options){
+      const targets=Array.from(document.querySelectorAll(nodes));
+      if(!targets.length)return;
+      gsap.fromTo(targets,
+        {autoAlpha:0,y:options.y||15},
+        {autoAlpha:1,y:0,duration:options.duration||.72,ease,
+         stagger:options.stagger||0,overwrite:'auto',clearProps:'opacity,visibility,transform',
+         scrollTrigger:{trigger:options.trigger||targets[0],start:options.start||'top 91%',once:true}
+        });
+    };
+    // Hero: branded reveal as one coherent opening sequence.
+    const hero=document.querySelector('.hero');
+    if(hero){
+      const head=hero.querySelectorAll('.hero__logo, h1, .hero__sub');
+      const links=hero.querySelectorAll('.btn-whatsapp, .quick-grid > *, .hero__footer, .scroll-cue');
+      const timeline=gsap.timeline({defaults:{ease},delay:.04});
+      timeline.fromTo(head,{autoAlpha:0,y:13},{autoAlpha:1,y:0,duration:.72,stagger:.105,clearProps:'opacity,visibility,transform'});
+      timeline.fromTo(links,{autoAlpha:0,y:10},{autoAlpha:1,y:0,duration:.52,stagger:.075,clearProps:'opacity,visibility,transform'},'-=.35');
+    }
+    // Each section reveals in one synchronized cadence, independent of carousel motion.
+    animate('#servicos > .section__eyebrow, #servicos > h2, #servicos > .section__intro', {trigger:'#servicos',stagger:.09,y:15});
+    animate('#servicos .services > *', {trigger:'#servicos .services',stagger:.095,y:17,duration:.64});
+    animate('#resultados > .section__eyebrow, #resultados > h2, #resultados > .section__intro', {trigger:'#resultados',stagger:.09,y:15});
+    animate('#resultados > .gallery-slider', {trigger:'#resultados .gallery-slider',y:18,duration:.85});
+    animate('#avaliacoes > .section__eyebrow, #avaliacoes > h2, #avaliacoes > .section__intro', {trigger:'#avaliacoes',stagger:.09,y:15});
+    animate('#avaliacoes > .reviews-shell', {trigger:'#avaliacoes .reviews-shell',y:18,duration:.82});
+    animate('#avaliacoes > .review-direct', {trigger:'#avaliacoes .review-direct',y:10,duration:.62});
+    animate('#localizacao > .section__eyebrow, #localizacao > .location', {trigger:'#localizacao',stagger:.11,y:16,duration:.75});
+    animate('footer.footer', {trigger:'footer.footer',y:9,duration:.52});
+    // Dimensions come from existing CSS. No pinning/scrubbing or layout reflows.
+    requestAnimationFrame(function(){ScrollTrigger.refresh();});
+  }
+  function load(){
+    inject(GSAP_URL,function(){inject(ST_URL,run);});
+  }
+  if(document.readyState==='complete'){
+    if('requestIdleCallback' in window) requestIdleCallback(load,{timeout:1200}); else setTimeout(load,250);
+  } else {
+    window.addEventListener('load',function(){
+      if('requestIdleCallback' in window) requestIdleCallback(load,{timeout:1200}); else setTimeout(load,250);
+    },{once:true});
+  }
+})();
+
 </script>
 </body>
 </html>
