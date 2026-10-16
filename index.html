@@ -262,21 +262,15 @@ html{overflow-anchor:none;scroll-padding-top:0}
 .cc-count{position:absolute;right:1px;top:50%;transform:translateY(-50%);font-variant-numeric:tabular-nums}
 @media(max-width:350px){.cc-nav-group{gap:12px}.cc-nav{width:37px;height:37px}.cc-count{font-size:9px}}
 
-
-
-/* WMCOPY r15 mobile viewport fix: stable small viewport, intrinsic content. */
-@media(max-width:679px){
-  .shell{overflow:visible!important;}
-  .hero{
-    height:auto!important;
-    max-height:none!important;
-    min-height:calc(100svh - 16px)!important;
-    overflow:visible!important;
-    box-sizing:border-box;
-  }
-  .hero__logo{flex-shrink:0;}
-}
 </style>
+<script>
+/* WMCOPY r11: always open a newly loaded or refreshed page at the hero. */
+(function(){
+  if ('scrollRestoration' in history) history.scrollRestoration='manual';
+  if (location.hash) history.replaceState(history.state, '', location.pathname+location.search);
+  window.scrollTo(0,0);
+})();
+</script>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
@@ -500,85 +494,34 @@ html{overflow-anchor:none;scroll-padding-top:0}
 })();
 </script>
 <script>
-/* WMCOPY r15: one-time initial scroll reset; no delayed competing scrollTo calls. */
+/* r11: in-page navigation never persists #fragment; fresh loads always begin at the hero. */
 (function(){
-  'use strict';
-  if ('scrollRestoration' in history) history.scrollRestoration='manual';
-  if (location.hash) history.replaceState(history.state,'',location.pathname+location.search);
-  function resetAtNavigation(){
-    if (window.scrollY===0) return;
-    const old=document.documentElement.style.scrollBehavior;
+  var initialLoad=true;
+  function clearHash(){
+    if(location.hash) history.replaceState(history.state,'',location.pathname+location.search);
+  }
+  function home(){
+    if(!initialLoad)return;
+    clearHash();
+    var old=document.documentElement.style.scrollBehavior;
     document.documentElement.style.scrollBehavior='auto';
-    window.scrollTo(0,0);
+    window.scrollTo({top:0,left:0,behavior:'instant'});
     document.documentElement.style.scrollBehavior=old;
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',resetAtNavigation,{once:true});
-  else resetAtNavigation();
-  // Restore to hero when navigating back from browser bfcache.
-  window.addEventListener('pageshow',e=>{if(e.persisted)resetAtNavigation();});
-  document.addEventListener('click',e=>{
-    const link=e.target.closest('a[href^="#"]');
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[href^="#"]');
     if(!link)return;
-    const id=link.getAttribute('href').slice(1);
-    const target=id&&document.getElementById(id);
+    var targetId=link.getAttribute('href').slice(1);
+    if(!targetId)return;
+    var target=document.getElementById(targetId);
     if(!target)return;
     e.preventDefault();
-    target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
-    // No URL fragment change during internal navigation.
+    clearHash();
+    target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
   });
-})();
-</script>
-<script>
-/* WMCOPY r15: progressive entrance, scroll-safe. Animation never changes layout sizes. */
-(function(){
-  'use strict';
-  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
-  const heroSelectors=['.hero__logo','.hero h1','.hero__sub','.hero .btn-whatsapp',
-    '.hero .quick-link','.hero__footer','.hero .scroll-cue'];
-  const contentSelectors=[
-    '#servicos > .section__eyebrow','#servicos > h2','#servicos > .section__intro','#servicos .services > *',
-    '#resultados > .section__eyebrow','#resultados > h2','#resultados > .section__intro','#resultados > .gallery-slider',
-    '#avaliacoes > .section__eyebrow','#avaliacoes > h2','#avaliacoes > .section__intro',
-    '#avaliacoes > .reviews-shell','#avaliacoes > .review-direct',
-    '#localizacao > .section__eyebrow','#localizacao > .location','footer.footer'
-  ];
-  let started=false;
-  let fallbackTimer;
-  const hero=heroSelectors.flatMap(x=>Array.from(document.querySelectorAll(x)));
-  const elements=contentSelectors.flatMap(x=>Array.from(document.querySelectorAll(x)));
-  // Apply only visual properties; no transforms on the full hero or carousels' tracks.
-  function start(gsap){
-    if(started)return;started=true;clearTimeout(fallbackTimer);
-    if(!gsap)return;
-    // The entrance must be visible on a cold mobile load. Give the whole group
-    // a deliberate 0.4s lead-in; keep elements readable if library is absent.
-    const timeline=gsap.timeline({delay:.42,defaults:{duration:.6,ease:'power2.out'}});
-    hero.forEach((el,i)=>{
-      timeline.fromTo(el,{opacity:0,y:8},{opacity:1,y:0,clearProps:'opacity,transform',immediateRender:false},i*.095);
-    });
-    if(!('IntersectionObserver' in window))return;
-    const observer=new IntersectionObserver(entries=>{
-      entries.forEach(entry=>{
-        if(!entry.isIntersecting)return;
-        observer.unobserve(entry.target);
-        gsap.fromTo(entry.target,{opacity:0,y:10},{opacity:1,y:0,duration:.65,
-          ease:'power2.out',immediateRender:false,clearProps:'opacity,transform'});
-      });
-    },{rootMargin:'0px 0px -8% 0px',threshold:.1});
-    elements.forEach(el=>observer.observe(el));
-    window.addEventListener('pagehide',()=>observer.disconnect(),{once:true});
-  }
-  function load(){
-    if(window.gsap){start(window.gsap);return;}
-    const js=document.createElement('script');
-    js.src='https://cdnjs.cloudflare.com/ajax/libs/gsap/3.14.2/gsap.min.js';
-    js.async=true;js.onload=()=>start(window.gsap);js.onerror=()=>start(null);
-    document.head.appendChild(js);
-    fallbackTimer=setTimeout(()=>start(null),2400);
-  }
-  // Start loading the library as soon as DOM exists, not after remote images finish.
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});
-  else load();
+  document.addEventListener('DOMContentLoaded',home);
+  window.addEventListener('load',function(){home();requestAnimationFrame(home);setTimeout(function(){home();initialLoad=false},180)});
+  window.addEventListener('pageshow',function(ev){if(ev.persisted){initialLoad=true;home();setTimeout(function(){home();initialLoad=false},150)}});
 })();
 </script>
 </body>
