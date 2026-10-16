@@ -247,7 +247,22 @@
 }
 /* Hero subtitle: two intentional lines on mobile, without orphan words. */
 .hero__sub span{display:block;white-space:nowrap}
+
+/* r11: Prevent mobile browser address-bar resizing from cropping hero content. */
+html{overflow-anchor:none;scroll-padding-top:0}
+@media(max-width:679px){
+  .hero{height:auto!important;max-height:none!important;min-height:calc(100svh - 16px);overflow:visible}
+  .shell{overflow:visible}
+}
 </style>
+<script>
+/* WMCOPY r11: always open a newly loaded or refreshed page at the hero. */
+(function(){
+  if ('scrollRestoration' in history) history.scrollRestoration='manual';
+  if (location.hash) history.replaceState(history.state, '', location.pathname+location.search);
+  window.scrollTo(0,0);
+})();
+</script>
 </head>
 <body>
 <svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true">
@@ -472,6 +487,37 @@
     gallery:initCarousel({rootId:'gallerySlider',trackId:'galleryTrack',prevId:'galleryPrev',nextId:'galleryNext',pauseId:'galleryPause',pauseIconId:'galleryPauseIcon',counterId:'galleryCounter',interval:4800}),
     reviews:initCarousel({rootId:'reviewSlider',trackId:'reviewTrack',prevId:'reviewPrev',nextId:'reviewNext',pauseId:'reviewPause',pauseIconId:'pauseIcon',counterId:'reviewCounter',interval:5900})
   };
+})();
+</script>
+<script>
+/* r11: in-page navigation never persists #fragment; fresh loads always begin at the hero. */
+(function(){
+  var initialLoad=true;
+  function clearHash(){
+    if(location.hash) history.replaceState(history.state,'',location.pathname+location.search);
+  }
+  function home(){
+    if(!initialLoad)return;
+    clearHash();
+    var old=document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior='auto';
+    window.scrollTo({top:0,left:0,behavior:'instant'});
+    document.documentElement.style.scrollBehavior=old;
+  }
+  document.addEventListener('click',function(e){
+    var link=e.target.closest('a[href^="#"]');
+    if(!link)return;
+    var targetId=link.getAttribute('href').slice(1);
+    if(!targetId)return;
+    var target=document.getElementById(targetId);
+    if(!target)return;
+    e.preventDefault();
+    clearHash();
+    target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+  });
+  document.addEventListener('DOMContentLoaded',home);
+  window.addEventListener('load',function(){home();requestAnimationFrame(home);setTimeout(function(){home();initialLoad=false},180)});
+  window.addEventListener('pageshow',function(ev){if(ev.persisted){initialLoad=true;home();setTimeout(function(){home();initialLoad=false},150)}});
 })();
 </script>
 </body>
