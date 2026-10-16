@@ -502,12 +502,33 @@ html{scroll-padding-top:0}
     var target=id&&document.getElementById(id);
     if(!target)return;
     e.preventDefault();
-    target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+    userNavigated=true;
+    target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
   });
+  // r19: Safari/Brave mobile may restore scroll after the early head script.
+  // Reset only during page initialization; never pull the page back after a real interaction.
+  var userNavigated=false;
+  function userHasInteracted(){userNavigated=true;}
+  ['touchstart','pointerdown','wheel','keydown'].forEach(function(type){
+    window.addEventListener(type,userHasInteracted,{once:true,passive:true});
+  });
+  function showHero(){
+    if(userNavigated)return;
+    if(window.scrollY>0 || document.scrollingElement && document.scrollingElement.scrollTop>0){
+      // CSS already sets html scroll-behavior:auto; numeric overload works in iOS Safari.
+      window.scrollTo(0,0);
+    }
+  }
+  // The DOM reset catches early browser restoration before images finish loading.
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',showHero,{once:true});
+  }else{showHero();}
   window.addEventListener('pageshow',function(){
     if(location.hash)history.replaceState(history.state,'',location.pathname+location.search);
-    window.scrollTo({top:0,left:0,behavior:'instant'});
-  });
+    showHero();
+    // One render-frame verification, not timers or a recurring scroll reset.
+    requestAnimationFrame(showHero);
+  },{passive:true});
 })();
 </script>
 </body>
