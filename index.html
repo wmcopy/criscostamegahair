@@ -254,6 +254,14 @@ html{overflow-anchor:none;scroll-padding-top:0}
   .hero{height:auto!important;max-height:none!important;min-height:calc(100svh - 16px);overflow:visible}
   .shell{overflow:visible}
 }
+
+/* r12 — controles mínimos centralizados nos dois carrosséis */
+.cc-controls{position:relative;display:flex;justify-content:center;align-items:center;min-height:44px;gap:12px;margin-top:12px}
+.cc-nav-group{display:flex;align-items:center;justify-content:center;gap:14px;margin:0 auto}
+.cc-nav{width:39px;height:39px;border-radius:12px;background:color-mix(in srgb,var(--brand) 5%,white);border:1px solid color-mix(in srgb,var(--brand) 17%,white);box-shadow:0 3px 8px rgba(60,15,32,.035)}
+.cc-count{position:absolute;right:1px;top:50%;transform:translateY(-50%);font-variant-numeric:tabular-nums}
+@media(max-width:350px){.cc-nav-group{gap:12px}.cc-nav{width:37px;height:37px}.cc-count{font-size:9px}}
+
 </style>
 <script>
 /* WMCOPY r11: always open a newly loaded or refreshed page at the hero. */
@@ -342,7 +350,6 @@ html{overflow-anchor:none;scroll-padding-top:0}
     <div class="cc-controls">
       <div class="cc-nav-group">
         <button class="cc-nav" id="galleryPrev" type="button" aria-label="Resultado anterior"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
-        <button class="cc-nav" id="galleryPause" type="button" aria-label="Pausar reprodução automática" aria-pressed="false"><svg class="icon" id="galleryPauseIcon"><use href="#i-pause"/></svg></button>
         <button class="cc-nav" id="galleryNext" type="button" aria-label="Próximo resultado"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
       </div>
       <span class="cc-count" id="galleryCounter" aria-live="off">01 / 03</span>
@@ -397,7 +404,6 @@ html{overflow-anchor:none;scroll-padding-top:0}
     <div class="cc-controls">
       <div class="cc-nav-group">
         <button class="cc-nav" id="reviewPrev" type="button" aria-label="Avaliação anterior"><svg class="icon"><use href="#i-chevron-left"/></svg></button>
-        <button class="cc-nav" id="reviewPause" type="button" aria-label="Pausar reprodução automática" aria-pressed="false"><svg class="icon" id="pauseIcon"><use href="#i-pause"/></svg></button>
         <button class="cc-nav" id="reviewNext" type="button" aria-label="Próxima avaliação"><svg class="icon"><use href="#i-chevron-right"/></svg></button>
       </div>
       <span class="cc-count" id="reviewCounter" aria-live="off">01 / 06</span>
@@ -447,15 +453,15 @@ html{overflow-anchor:none;scroll-padding-top:0}
     const image=button.querySelector('img');showImage(image.currentSrc||image.src,image.alt);
   });
   // Independent infinite slide carousel with manual/auto mode and input-aware pause.
-  function initCarousel({rootId,trackId,prevId,nextId,pauseId,pauseIconId,counterId,interval}){
+  function initCarousel({rootId,trackId,prevId,nextId,counterId,interval}){
     const root=$('#'+rootId),track=$('#'+trackId),viewport=$('.cc-viewport',root);
     const initial=[...track.children],size=initial.length;
     if(!size)return;
     const head=initial[size-1].cloneNode(true),tail=initial[0].cloneNode(true);
     for(const clone of [head,tail]){clone.setAttribute('aria-hidden','true');clone.setAttribute('inert','');}
     track.insertBefore(head,initial[0]);track.appendChild(tail);
-    const prev=$('#'+prevId),next=$('#'+nextId),pause=$('#'+pauseId),pauseIcon=$('#'+pauseIconId),counter=$('#'+counterId);
-    let index=1,busy=false,playing=!reduced,inView=false,hover=false,focus=false,timer=null,unpauseTimer=null,swipeX=null;
+    const prev=$('#'+prevId),next=$('#'+nextId),counter=$('#'+counterId);
+    let index=1,busy=false,playing=!reduced,inView=false,hover=false,focus=false,timer=null,unpauseTimer=null,swipeX=null,completionTimer=null;
     const width=()=>viewport.getBoundingClientRect().width;
     const actual=()=>((index-1+size)%size)+1;
     function draw(animate=true){track.style.transition=animate&&!reduced?'transform .52s cubic-bezier(.22,.73,.23,1)':'none';track.style.transform=`translate3d(${-index*width()}px,0,0)`;counter.textContent=`${String(actual()).padStart(2,'0')} / ${String(size).padStart(2,'0')}`;}
@@ -463,12 +469,10 @@ html{overflow-anchor:none;scroll-padding-top:0}
     function stop(){clearInterval(timer);timer=null;}
     function schedule(){stop();if(shouldRun())timer=setInterval(()=>move(1,false),interval);}
     function hold(){clearTimeout(unpauseTimer);unpauseTimer=setTimeout(()=>{unpauseTimer=null;schedule()},4800);stop();}
-    function move(delta,manual=true){if(busy||modal.hasAttribute('open'))return;if(manual)hold();busy=!reduced;index+=delta;draw(true);if(reduced){reset();}}
-    function reset(){if(index===size+1){index=1;draw(false)}else if(index===0){index=size;draw(false)}busy=false;}
+    function move(delta,manual=true){if(modal.hasAttribute('open'))return;if(busy){clearTimeout(completionTimer);reset();}if(manual)hold();busy=!reduced;index+=delta;draw(true);if(reduced){reset();}else{clearTimeout(completionTimer);completionTimer=setTimeout(reset,650);}}
+    function reset(){clearTimeout(completionTimer);completionTimer=null;if(index===size+1){index=1;draw(false)}else if(index===0){index=size;draw(false)}busy=false;}
     track.addEventListener('transitionend',e=>{if(e.target===track&&e.propertyName==='transform')reset()});
     prev.addEventListener('click',()=>move(-1));next.addEventListener('click',()=>move(1));
-    pause.addEventListener('click',()=>{playing=!playing;pause.setAttribute('aria-pressed',String(!playing));pause.setAttribute('aria-label',playing?'Pausar reprodução automática':'Retomar reprodução automática');pauseIcon.querySelector('use').setAttribute('href',playing?'#i-pause':'#i-play');clearTimeout(unpauseTimer);unpauseTimer=null;schedule()});
-    if(reduced){pause.setAttribute('aria-pressed','true');pause.setAttribute('aria-label','Retomar reprodução automática');pauseIcon.querySelector('use').setAttribute('href','#i-play');}
     viewport.addEventListener('touchstart',e=>{swipeX=e.changedTouches[0].clientX},{passive:true});
     viewport.addEventListener('touchend',e=>{if(swipeX===null)return;const dx=e.changedTouches[0].clientX-swipeX;swipeX=null;if(Math.abs(dx)>42)move(dx<0?1:-1)},{passive:true});
     let mouseX=null;
@@ -476,16 +480,16 @@ html{overflow-anchor:none;scroll-padding-top:0}
     viewport.addEventListener('pointerup',e=>{if(mouseX===null)return;const dx=e.clientX-mouseX;mouseX=null;if(Math.abs(dx)>45)move(dx<0?1:-1)});
     viewport.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();move(1)}if(e.key==='ArrowLeft'){e.preventDefault();move(-1)}});
     root.addEventListener('mouseenter',()=>{hover=true;schedule()});root.addEventListener('mouseleave',()=>{hover=false;schedule()});
-    root.addEventListener('focusin',()=>{focus=true;schedule()});root.addEventListener('focusout',e=>{if(!root.contains(e.relatedTarget)){focus=false;schedule()}});
+    root.addEventListener('focusin',e=>{if(e.target===viewport){focus=true;schedule()}});root.addEventListener('focusout',e=>{if(!root.contains(e.relatedTarget)){focus=false;schedule()}});
     document.addEventListener('visibilitychange',schedule);
     if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{inView=entries[0].isIntersecting;schedule()},{threshold:.15});observer.observe(root)}else{inView=true;schedule()}
-    let resizeToken;window.addEventListener('resize',()=>{cancelAnimationFrame(resizeToken);resizeToken=requestAnimationFrame(()=>draw(false))},{passive:true});
+    let resizeToken;window.addEventListener('resize',()=>{cancelAnimationFrame(resizeToken);resizeToken=requestAnimationFrame(()=>{reset();draw(false)})},{passive:true});
     draw(false);
     return {move,get index(){return actual()},get size(){return size}};
   }
   window.__crisSliders={
-    gallery:initCarousel({rootId:'gallerySlider',trackId:'galleryTrack',prevId:'galleryPrev',nextId:'galleryNext',pauseId:'galleryPause',pauseIconId:'galleryPauseIcon',counterId:'galleryCounter',interval:4800}),
-    reviews:initCarousel({rootId:'reviewSlider',trackId:'reviewTrack',prevId:'reviewPrev',nextId:'reviewNext',pauseId:'reviewPause',pauseIconId:'pauseIcon',counterId:'reviewCounter',interval:5900})
+    gallery:initCarousel({rootId:'gallerySlider',trackId:'galleryTrack',prevId:'galleryPrev',nextId:'galleryNext',counterId:'galleryCounter',interval:4800}),
+    reviews:initCarousel({rootId:'reviewSlider',trackId:'reviewTrack',prevId:'reviewPrev',nextId:'reviewNext',counterId:'reviewCounter',interval:5900})
   };
 })();
 </script>
